@@ -39,3 +39,92 @@ ORDER BY c DESC LIMIT 1;
 
 
 5)
+WITH most_popular AS (
+  SELECT 
+    sales.customer_id, 
+    menu.product_name, 
+    COUNT(menu.product_id) AS order_count,
+    DENSE_RANK() OVER (
+      PARTITION BY sales.customer_id 
+      ORDER BY COUNT(sales.customer_id) DESC) AS rank
+  FROM dannys_diner.menu
+  INNER JOIN dannys_diner.sales
+    ON menu.product_id = sales.product_id
+  GROUP BY sales.customer_id, menu.product_name
+)
+
+SELECT 
+  customer_id, 
+  product_name, 
+  order_count
+FROM most_popular 
+WHERE rank = 1;
+
+
+
+6)
+
+WITH joined_as_member AS (
+  SELECT
+	sales.product_id,
+    members.customer_id, 
+    ROW_NUMBER() OVER (
+      PARTITION BY members.customer_id
+      ORDER BY sales.order_date) AS r
+  FROM dannys_diner.members
+  INNER JOIN dannys_diner.sales
+    ON members.customer_id = sales.customer_id
+    AND sales.order_date > members.join_date
+)
+
+SELECT 
+  customer_id, 
+  product_name 
+FROM joined_as_member
+INNER JOIN dannys_diner.menu
+  ON joined_as_member.product_id = menu.product_id
+WHERE r = 1
+ORDER BY customer_id ASC;
+
+
+
+7)
+WITH purchased_prior_member AS (
+  SELECT 
+    members.customer_id, 
+    sales.product_id,
+    ROW_NUMBER() OVER (
+      PARTITION BY members.customer_id
+      ORDER BY sales.order_date DESC) AS rank
+  FROM dannys_diner.members
+  INNER JOIN dannys_diner.sales
+    ON members.customer_id = sales.customer_id
+    AND sales.order_date < members.join_date
+)
+
+SELECT 
+  p_member.customer_id, 
+  menu.product_name 
+FROM purchased_prior_member AS p_member
+INNER JOIN dannys_diner.menu
+  ON p_member.product_id = menu.product_id
+WHERE rank = 1
+ORDER BY p_member.customer_id ASC;
+
+
+8)
+SELECT 
+  sales.customer_id, 
+  COUNT(sales.product_id) AS total_items, 
+  SUM(menu.price) AS total_sales
+FROM dannys_diner.sales
+JOIN dannys_diner.members
+  ON sales.customer_id = members.customer_id
+  AND sales.order_date < members.join_date
+JOIN dannys_diner.menu
+  ON sales.product_id = menu.product_id
+GROUP BY sales.customer_id
+ORDER BY sales.customer_id;
+
+
+5)
